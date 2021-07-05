@@ -69,9 +69,9 @@ class DetectionData:
         self.labels = labels
 
 class TFRecordManager:
-    def __init__(self, data_path, json_file_name):
+    def __init__(self, data_path, json_file_name, middle_path = "train"):
         self.data_path = data_path
-        tfrecords_basedir = os.path.join(data_path, "tfr")
+        tfrecords_basedir = os.path.join(data_path, "tfr", middle_path)
 
         if os.path.exists(tfrecords_basedir):
             import shutil
@@ -81,7 +81,7 @@ class TFRecordManager:
         self.bg_tfrecord_basefile = os.path.join(tfrecords_basedir, str(uuid.uuid4()))
         self.fg_tfrecord_basefile = os.path.join(tfrecords_basedir, str(uuid.uuid4()))
         self.nrt_json_path = os.path.join(self.data_path, json_file_name)
-        self.raw_images_path = os.path.join(self.data_path, "train")
+        self.raw_images_path = os.path.join(self.data_path, middle_path)
         self.bg_detection_data_list = []
         self.fg_detection_data_list = []
         self._parse_nrt_json(ocr = True)
@@ -214,8 +214,12 @@ class TFRecordManager:
         assert batch_size % 2 == 0, "batch size must be even number."
         self.write_tfrecord_to_disk()
         dataset_sz = len(self.bg_detection_data_list) + len(self.fg_detection_data_list)
-        fg_ds = tf.data.TFRecordDataset([self.fg_tfrecord_basefile]).shuffle(len(self.fg_tfrecord_basefile)).repeat()
-        bg_ds = tf.data.TFRecordDataset([self.bg_tfrecord_basefile]).shuffle(len(self.bg_tfrecord_basefile)).repeat()
+        
+        fg_ds = tf.data.TFRecordDataset([self.fg_tfrecord_basefile])
+        bg_ds = tf.data.TFRecordDataset([self.bg_tfrecord_basefile])
+        if is_train:
+            fg_ds = fg_ds.shuffle(len(self.fg_tfrecord_basefile)).repeat()
+            bg_ds = bg_ds.shuffle(len(self.bg_tfrecord_basefile)).repeat()
         
         _parse_function = functools.partial(
             self._parse_function,
